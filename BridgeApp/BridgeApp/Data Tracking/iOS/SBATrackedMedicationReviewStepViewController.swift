@@ -135,26 +135,13 @@ open class SBATrackedMedicationReviewCell: RSDTableViewCell {
             if let dosageUnwrapped = medItem.medication.dosage {
                 self.titleLabel.text = String(format: "%@ %@", medItem.medication.identifier, dosageUnwrapped)
                 if let schedules = medItem.medication.scheduleItems {
-                    var timeStr = ""
                     if schedules.first?.timeOfDayString == nil {
-                        timeStr = Localization.localizedString("MEDICATION_ANYTIME")
+                        self.detailLabel.text = Localization.localizedString("MEDICATION_ANYTIME")
                     } else {
-                        let timeArray = schedules.filter({ $0.timeOfDayString != nil })
-                            .map({ (schedule) -> String in
-                                let time = RSDDateCoderObject.hourAndMinutesOnly.inputFormatter.date(from: schedule.timeOfDayString!) ?? Date()
-                                return DateFormatter.localizedString(from: time, dateStyle: .none, timeStyle: .short)
-                            })
-                        timeStr = timeArray.joined(separator: ", ")
+                        let formatter = RSDWeeklyScheduleFormatter()
+                        formatter.style = .medium
+                        self.detailLabel.text = formatter.string(from: Array(schedules))
                     }
-                    
-                    var weekdaySet: Set<RSDWeekday> = Set()
-                    for schedule in schedules {
-                        for weekday in schedule.daysOfWeek {
-                            weekdaySet.insert(weekday)
-                        }
-                    }
-                    let weekdayStr = SBATrackedWeeklyScheduleCell.weekdayTitle(for: Array(weekdaySet))
-                    self.detailLabel.text = String(format: "%@\n%@", timeStr, weekdayStr)
                 }
                 self.actionButton.isHidden = false
                 self.cheveronView.isHidden = true

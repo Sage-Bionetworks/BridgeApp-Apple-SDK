@@ -45,7 +45,6 @@ open class SBATrackedMedicationDetailStepObject : SBATrackedItemDetailsStepObjec
             actionType == .navigation(.skip) {
             return true
         }
-        // TODO: mdephillips 6/27/18 make X button be a back button
         return false
     }
     
@@ -169,9 +168,10 @@ open class SBATrackedMedicationDetailsDataSource : RSDTableDataSource {
     /// Adds a schedule item to the schedules section.
     /// While not strictly enforced, this should not be called if any existing
     /// schedule items are set to schedule at anytime.
-    public func addScheduleItem() {
+    /// - returns: The index path of the section that was added.
+    public func addScheduleItem() -> IndexPath? {
         guard let schedulesSection = sections.filter({ $0.identifier == FieldIdentifiers.schedules.stringValue }).first else {
-            return
+            return nil
         }
         let newIndex = schedulesSection.tableItems.count
         let scheduleTableItem = SBATrackedWeeklyScheduleTableItem(identifier:
@@ -180,28 +180,31 @@ open class SBATrackedMedicationDetailsDataSource : RSDTableDataSource {
         newTableItems.append(scheduleTableItem)
         let newSchedulesSection = RSDTableSection(identifier: FieldIdentifiers.schedules.stringValue, sectionIndex: FieldIdentifiers.schedules.sectionIndex(), tableItems: newTableItems)
         sections[FieldIdentifiers.schedules.sectionIndex()] = newSchedulesSection
+        return IndexPath(item: newIndex, section: FieldIdentifiers.schedules.sectionIndex())
     }
     
     
     /// Call this method when the user has selected that they schedule this at anytime.
     /// This will reduce the schedule section to 1 element.
-    public func scheduleAtAnytimeChanged(selected: Bool) {
-        guard let schedulesSection = sections.filter({ $0.identifier == FieldIdentifiers.schedules.stringValue }).first,
-            schedulesSection.tableItems.count > 0 else {
-            return
+    /// - returns:
+    ///        - itemsRemoved: The index paths of the items that were removed.
+    ///        - sectionAdded: `true` if the "add schedule" section was added; `false` if it was removed.
+    public func scheduleAtAnytimeChanged(selected: Bool) -> (itemsRemoved: [IndexPath], sectionAdded: Bool)? {
+        guard let schedulesSection = sections.first(where: {$0.identifier == FieldIdentifiers.schedules.stringValue}),
+            let scheduleItem = schedulesSection.tableItems.last as? SBATrackedWeeklyScheduleTableItem else {
+                return nil
         }
-        let lastIndex = schedulesSection.tableItems.count - 1
-        let tableItem = schedulesSection.tableItems[lastIndex]
-        guard let scheduleItem = tableItem as? SBATrackedWeeklyScheduleTableItem else { return }
         if (selected) {
             scheduleItem.time = nil
             scheduleItem.weekdays = nil
         } else {
             scheduleItem.time = Calendar.current.date(bySetting: .hour, value: 7, of: Date().startOfDay())
-            scheduleItem.weekdays = [.friday]
+            scheduleItem.weekdays = Array(RSDWeekday.all)
         }
-        let newSchedulesSection = RSDTableSection(identifier: FieldIdentifiers.schedules.stringValue, sectionIndex: FieldIdentifiers.schedules.sectionIndex(), tableItems: [scheduleItem])
-        sections[FieldIdentifiers.schedules.sectionIndex()] = newSchedulesSection
+        
+        let schedulesSectionIndex = FieldIdentifiers.schedules.sectionIndex()
+        let newSchedulesSection = RSDTableSection(identifier: FieldIdentifiers.schedules.stringValue, sectionIndex: schedulesSectionIndex, tableItems: [scheduleItem])
+        sections[schedulesSectionIndex] = newSchedulesSection
         
         // If the anytime field is selected, hide the add schedule button
         if !selected {
@@ -215,6 +218,17 @@ open class SBATrackedMedicationDetailsDataSource : RSDTableDataSource {
                 self.sections.remove(at: FieldIdentifiers.addSchedule.sectionIndex())
             }
         }
+        
+        var itemsRemoved = [IndexPath]()
+        let lastIndex = schedulesSection.tableItems.count - 1
+        if selected && lastIndex >= 1 {
+            let schedulesIndex = FieldIdentifiers.schedules.sectionIndex()
+            for i in 1...lastIndex {
+                itemsRemoved.append(IndexPath(item: i, section: schedulesIndex))
+            }
+        }
+        
+        return (itemsRemoved, !selected)
     }
     
     public func appendRemoveMedicationToTaskPath() {
