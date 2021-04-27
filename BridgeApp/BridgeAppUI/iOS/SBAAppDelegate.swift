@@ -70,6 +70,11 @@ open class SBAAppDelegate : RSDAppDelegate, SBBBridgeErrorUIDelegate {
         rootViewController?.contentHidden = false
     }
     
+    open func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
+        if identifier == kBackgroundSessionIdentifier {
+            BridgeSDK.restoreBackgroundSession(identifier, completionHandler: completionHandler)
+        }
+    }
 
     // ------------------------------------------------
     // MARK: RootViewController management
